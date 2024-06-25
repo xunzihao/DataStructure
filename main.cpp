@@ -1,6 +1,7 @@
 #include <cstring>
 #include <stdio.h>
 #include <stdlib.h>
+#define Max 100
 
 typedef struct book {
     char book_num[10]; /*图书编号*/
@@ -12,16 +13,21 @@ typedef struct book {
     int length;
 } Book;
 
+typedef struct borrow {
+    int borrow_count;
+    char borrow_book_num[10]; //借阅书籍的编号
+    char limit_date[100]; //借阅的截止日期
+} BookBorrow;
+
 typedef struct reader {
     char reader_num[20]; /*学生学号*/
     char reader_name[20]; /*学生姓名*/
     int permission; /*1可借 0 不可借*/
-    Book borrow[100]; /*最大借书量*/
-    int borrow_count;
+    BookBorrow borrow[Max]; /*最大借书量*/
     struct reader *next;
     int length;
-    char *borrow_book_num[];
 } Student;
+
 
 void wait_for_keypress() {
     printf("按任意键返回主菜单...");
@@ -29,59 +35,60 @@ void wait_for_keypress() {
     getchar(); // Wait for a key press
 };
 
+Student *find_student(Student *students, const char *input_num) {
+    while (students != NULL && strcmp(students->reader_num, input_num) != 0) {
+        students = students->next;
+    }
+    return students;
+}
+
+Book *find_book(Book *book, const char *input_book_num) {
+    while (book != NULL && strcmp(book->book_num, input_book_num)) {
+        book = book->next;
+    }
+    return book;
+}
+
+
 Student *insert_student_information(Student *student) {
     printf("\n学生信息录入：\n");
     Student *new_student = (Student *) malloc(sizeof(Student));
     if (new_student == NULL) {
         printf("内存分配失败！\n");
-        return 0;
+        wait_for_keypress();
+        return NULL;
     }
     printf("\n请输入学生信息：\n");
     printf("学号:"); /*输入学号*/
     scanf("%s", new_student->reader_num);
-
-    Student *current = student;
-    Student *previous = NULL;
-    int found = 0;
-
-    while (current != NULL) {
-        if (strcmp(current->reader_num, new_student->reader_num) == 0) {
-            found = 1;
-            break;
-        }
-        previous = current;
-        current = current->next;
-    }
-    if (found) {
+    if (find_student(student, new_student->reader_num)) {
         printf("此学生信息已存在");
         free(new_student);
-    } else {
-        printf("姓名:"); /*输入姓名*/
-        scanf("%s", new_student->reader_name);
-        printf("权限:"); /*输入权限*/
-        scanf("%d", &new_student->permission);
-        new_student->borrow_count = 0;
-        new_student->next = NULL;
-        for (int i; i < 100; i++) {
-            new_student->borrow[i].book_num[0] = '\0';
-            new_student->borrow[i].book_name[0] = '\0';
-            new_student->borrow[i].book_writer[0] = '\0';
-            new_student->borrow[i].book_xy = 0;
-            new_student->borrow[i].book_kc = 0;
-            new_student->borrow[i].next = NULL;
-        }
-        if (student == NULL) {
-            student = new_student;
-        } else {
-            Student *current = student;
-            while (current->next != NULL) {
-                current = current->next;
-            }
-            current->next = new_student;
-        }
-        printf("\n学生信息录入完毕!\n");
-        student->length += 1;
+        wait_for_keypress();
+        return student;
     }
+    printf("姓名:"); /*输入姓名*/
+    scanf("%s", new_student->reader_name);
+    printf("权限:"); /*输入权限*/
+    scanf("%d", &new_student->permission);
+    new_student->borrow->borrow_count = 0;
+    new_student->next = NULL;
+    for (int i = 0; i < Max; i++) {
+        new_student->borrow[i].borrow_book_num[0] = '\0';
+        new_student->borrow[i].limit_date[0] = '\0';
+    }
+    if (student == NULL) {
+        student = new_student;
+    } else {
+        Student *current = student;
+        while (current->next != NULL) {
+            current = current->next;
+        }
+        current->next = new_student;
+    }
+    printf("\n学生信息录入完毕!\n");
+    student->length += 1;
+
     wait_for_keypress();
     return student;
 }
@@ -102,23 +109,12 @@ Book *insert_book(Book *books) {
         printf("\n请输入书籍信息：\n");
         printf("图书编号:"); /*输入图书编号(唯一)*/
         scanf("%s", new_book->book_num);
-        Book *current = books;
-        Book *previous = NULL;
-        int found = 0;
-
-        while (current != NULL) {
-            if (strcmp(current->book_num, new_book->book_num) == 0) {
-                found = 1;
-                break;
-            }
-            previous = current;
-            current = current->next;
-        }
-        if (found) {
+        Book *exsiting_book = find_book(books, new_book->book_num);
+        if (exsiting_book != NULL) {
             printf("此图书已存在于管中，请输入入库数量");
             scanf("%d", &new_book->book_kc);
-            books->book_kc += new_book->book_kc;
-            books->book_xy += new_book->book_kc;
+            exsiting_book->book_kc += new_book->book_kc;
+            exsiting_book->book_xy += new_book->book_kc;
             free(new_book);
         } else {
             printf("图书名称:"); /*输入图书名称*/
@@ -149,44 +145,48 @@ Book *insert_book(Book *books) {
 void borrow_book() {
 }
 
+
 void return_book(Book *books, Student *students) {
-    Student *q = students;
-    int i, find = 0;
+    int i;
     char return_book_num[10], return_reader_num[20];
     printf("\n归还书籍\n");
     printf("\n请输入学号:");
     scanf("%s", return_reader_num);
-    // 查找学生
-    while (q != NULL && strcmp(return_reader_num, q->reader_num) != 0)
-        q = q->next;
 
-    if (q == NULL) {
-        find = 2;
+    // 查找学生
+    Student *student = find_student(students, return_reader_num);
+    if (student == NULL) {
         printf("\n此学号不存在!\n");
+        return;
     }
     printf("\n请输入归还书籍编号:");
     scanf("%s", return_book_num);
-
+    Book *borrow_book = find_book(books, return_book_num);
+    if (borrow_book == NULL) {
+        printf("此图书不存在");
+        wait_for_keypress();
+        return;
+    }
     // 查找书籍编号在学生的借书列表中
-    for (i = 0; i < q->borrow_count; i++) {
-        if (strcmp(return_book_num, q->borrow_book_num[i]) == 0) {
-            find = 1;
+    for (i = 0; i < student->borrow->borrow_count; i++) {
+        if (strcmp(return_book_num, student->borrow[i].borrow_book_num) == 0) {
             // 将后续借书记录向前移动
-            for (int j = i; j < q->borrow_count - 1; j++) {
-                strcpy(q->borrow_book_num[j], q->borrow_book_num[j + 1]);
-                strcpy(q->limit_date[j], q->limit_date[j + 1]);
+            for (int j = i; j < student->borrow->borrow_count - 1; j++) {
+                strcpy(student->borrow[j].borrow_book_num, student->borrow[j + 1].borrow_book_num);
+                strcpy(student->borrow[j].limit_date, student->borrow[j + 1].limit_date);
             }
             // 清除最后一个借书记录
-            strcpy(q->borrow_book_num[q->borrow_count - 1], "0");
-            strcpy(q->limit_date[q->borrow_count - 1], "0");
-            q->borrow_count--; // 减少借书计数
-
+            strcpy(student->borrow[student->borrow->borrow_count - 1].borrow_book_num, "0");
+            strcpy(student->borrow[student->borrow->borrow_count - 1].limit_date, "0");
+            student->borrow->borrow_count--; // 减少借书计数
+            borrow_book->book_kc++;
+            borrow_book->book_xy++;
             printf("\n学号%s的学生还书完毕!", return_reader_num);
             break; // 找到后退出循环
         }
     }
-    if (find == 0)
-        printf("\n错误，该学生未借此书!\n");
+    printf("\n错误，该学生未借此书!\n");
+    wait_for_keypress();
 }
 
 void book_information_enquiry(Book *books) {
@@ -218,7 +218,7 @@ void student_information_enquiry(Student *students) {
         printf("学号: %s    ", current->reader_num);
         printf("姓名: %s    ", current->reader_name);
         printf("权限: %d    ", current->permission);
-        printf("借出书本数量: %d\n", current->borrow_count);
+        printf("借出书本数量: %d\n", current->borrow->borrow_count);
         current = current->next;
         count++;
     }
@@ -234,11 +234,11 @@ int GetLength(Book *books) {
     return length;
 }
 
-int main(void) {
+int main() {
     Book *books = NULL;
     Student *students = NULL;
     int choice;
-    while (1) {
+    while (true) {
         printf("当前馆藏图书数量:%d\n", GetLength(books));
         printf("欢迎您使用图书管理系统，请选择功能：\n");
         printf("1.学生信息登记\n");
@@ -255,7 +255,7 @@ int main(void) {
         }
         switch (choice) {
             case 0:
-                break;
+                exit(0);
             case 1:
                 students = insert_student_information(students);
                 break;
@@ -266,7 +266,7 @@ int main(void) {
                 borrow_book();
                 break;
             case 4:
-                return_book(books,students);
+                return_book(books, students);
                 break;
             case 5:
                 book_information_enquiry(books);
