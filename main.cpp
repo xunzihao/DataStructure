@@ -148,7 +148,44 @@ Book *insert_book(Book *books) {
 void borrow_book() {
 }
 
-void return_book() {
+void return_book(Book* books,Student* students) {
+
+    int i, find = 0;
+    char return_book_num[10], return_reader_num[20];
+    printf("\n归还书籍\n");
+    printf("\n请输入学号:");
+    scanf("%s", return_reader_num);
+    // 查找学生
+    while (students != NULL && strcmp(return_reader_num, students->reader_num) != 0)
+        students = students->next;
+
+    if (students == NULL) {
+        find = 2;
+        printf("\n此学号不存在!\n");
+    }
+    printf("\n请输入归还书籍编号:");
+    scanf("%s", return_book_num);
+
+    // 查找书籍编号在学生的借书列表中
+    for (i = 0; i < students->borrow_count; i++) {
+        if (strcmp(return_book_num, students->borrow_book_num[i]) == 0) {
+            find = 1;
+            // 将后续借书记录向前移动
+            for (int j = i; j < students->borrow_count - 1; j++) {
+                strcpy(students->borrow_book_num[j], students->borrow_book_num[j + 1]);
+                strcpy(students->limit_date[j], students->limit_date[j + 1]);
+            }
+            // 清除最后一个借书记录
+            strcpy(students->borrow_book_num[students->borrow_count - 1], "0");
+            strcpy(students->limit_date[students->borrow_count - 1], "0");
+            students->borrow_count--; // 减少借书计数
+
+            printf("\n学号%s的学生还书完毕!", return_reader_num);
+            break; // 找到后退出循环
+        }
+    }
+    if (find == 0)
+        printf("\n错误，该学生未借此书!\n");
 }
 
 void book_information_enquiry(Book *books) {
