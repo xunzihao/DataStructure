@@ -339,7 +339,7 @@ void return_book(Book *books, Student *students) {
                 student->borrow[student->borrow->borrow_count - 1].borrow_book_num[0] = '\0';
                 student->borrow[student->borrow->borrow_count - 1].limit_date[0] = '\0';
 
-                student->borrow->borrow_count--; // 减少借书计数
+
                 borrow_book->book_stock++; // 增加图书库存
                 printf("\n学号%s的学生还书完毕!\n", return_reader_num);
 
@@ -442,7 +442,7 @@ int main() {
                 break;
             case 0:
                 printf("退出系统。\n");
-                break;
+                exit(0);
             default:
                 printf("无效的选择，请重新输入。\n");
                 break;
